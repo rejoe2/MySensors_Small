@@ -67,6 +67,8 @@ void before() {
 #else
 	analogReference(INTERNAL);
 #endif
+	pinMode (ktcCS, OUTPUT);
+	digitalWrite(ktcCS, HIGH);
 }
 
 void presentation()  {
