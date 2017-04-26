@@ -55,6 +55,7 @@ int oldBatteryPcnt = 0;
 
 #define TEMP_CHILD 1
 
+float lastTemp=-127;
 const unsigned long SLEEP_TIME = 30000; //Sende alle 5 Min.
 
 bool metric;
@@ -80,7 +81,7 @@ void presentation()  {
 }
 
 void setup() {
-		metric = getConfig().isMetric;
+		metric = getControllerConfig().isMetric;
 }
 
 

@@ -42,7 +42,8 @@
 // Enable and select radio type attached
 #define MY_RADIO_NRF24
 //#define MY_RADIO_RFM69
-#define MY_TRANSPORT_RELAXED
+//#define MY_TRANSPORT_RELAXED
+#define MY_TRANSPORT_WAIT_READY_MS 3000
 #define MY_NODE_ID 103
 
 #include <SPI.h>
@@ -171,7 +172,7 @@ void setup()
   request(CHILD_CONFIG, V_VAR1);
   request(CHILD_CONFIG, V_VAR2);
   //  request(CHILD_CONFIG, V_VAR3);
-  metric = getConfig().isMetric;
+  metric = getControllerConfig().isMetric;
   if (!bmp.begin()) {
     Serial.println("Could not find a valid BMP085 sensor, check wiring!");
   };
