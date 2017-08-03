@@ -1,5 +1,6 @@
 /*
 Original by scalz@mysensors: https://forum.mysensors.org/topic/6952/veml6070-and-veml6075-uv-sensors/25#
+Needs a modified VEML6075-lib: https://github.com/rejoe2/VEML6075
 */
 // Enable debug prints to serial monitor
 #define MY_DEBUG
