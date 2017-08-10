@@ -67,7 +67,7 @@ void loop()
     static float uvbOld = -1;
     
     veml6075.sleep(false); // power up veml6075
-
+    sleep(500);
     // Poll sensor
     veml6075.poll();
 
