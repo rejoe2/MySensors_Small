@@ -3,8 +3,8 @@
   - Wasserzähler
   - 3xPIR:
   - 1 Relais
-  - 2 DS18B20	
- Konfiguration:
+  - 2 DS18B20
+  Konfiguration:
   - ID 0, V_VAR1: On-Time
 */
 
@@ -28,14 +28,13 @@
 #include <OneWire.h>
 #include <Bounce2.h>
 
-#define MAX_ATTACHED_DS18B20 10
+#define MAX_ATTACHED_DS18B20 11
 unsigned long SLEEP_TIME = 300000; // Sleep time between reads (in milliseconds)
 unsigned long lastTemp = 0;
 
 OneWire oneWire[2] = {10,11}; //{oneWirePins[]}setup oneWire instances to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 DallasTemperature sensors[2]; // Pass the oneWire reference to Dallas Temperature.
 float lastTemperature[MAX_ATTACHED_DS18B20];
-//int numSensors = 0;
 boolean receivedConfig = false;
 boolean metric = true;
 // Initialize temperature message
@@ -44,9 +43,18 @@ int  resolution = 10;
 int  conversionTime = 1000;
 
 // arrays to hold device addresses
-DeviceAddress dallasAddresses[0][] = {
-    {0x28, 0x28, 0x6F, 0xE5, 0x5, 0x0, 0x0, 0x8A}, // Aussentemperatur Süd 28.286FE5050000.8A
-  {0x28, 0x42, 0x6F, 0xE5, 0x5, 0x0, 0x0, 0x86} // Schildkröten 28.426FE5050000.86*/
+DeviceAddress dallasAddresses[] = {
+  {0x28, 0x28, 0x6F, 0xE5, 0x5, 0x0, 0x0, 0x8A}, // Aussentemperatur Süd 28.286FE5050000.8A
+  {0x28, 0x42, 0x6F, 0xE5, 0x5, 0x0, 0x0, 0x86}, // Schildkröten 28.426FE5050000.86
+  {0x28, 0xFF, 0xA2, 0xB9, 0xB3, 0x16, 0x3, 0x6},// #2
+  {0x28, 0xFF, 0x12, 0xB8, 0xB3, 0x16, 0x3, 0xC6},// #3
+  {0x28, 0xFF, 0xAA, 0x47, 0xB5, 0x16, 0x5, 0x50},// #4
+  {0x28, 0xFF, 0xC1, 0x19, 0xB5, 0x16, 0x5, 0xFC},// #5
+  {0x28, 0xFF, 0xC3, 0x73, 0xC1, 0x16, 0x4, 0xDB},// #6
+  {0x28, 0xFF, 0x97, 0xA6, 0xB3, 0x16, 0x4, 0x71},// #7
+  {0x28, 0xFF, 0x34, 0xA, 0xB5, 0x16, 0x5, 0x38},// #8
+  {0x28, 0xFF, 0xB6, 0x45, 0xB5, 0x16, 0x5, 0x0A},// #9
+  {0x28, 0xFF, 0xC3, 0x2E, 0xB3, 0x16, 0x5, 0x60} // #10
 };
 
 int AS = 0; //Aussentemperatur Sued => [0] => PIN 10
@@ -74,7 +82,7 @@ bool oldPir[MAX_PIRS] = {false};
 #define RELAY_ON 0
 #define RELAY_OFF 1
 
-unsigned long pirOnTime = 30000; //Check cyclus for fast temperature rise
+unsigned long pirOnTime = 30000; //time pir sets light on
 unsigned long lastSwitchOn = 0;
 
 MyMessage flowMsg(CHILD_ID_WATER, V_FLOW);
@@ -95,7 +103,7 @@ double oldvolume = 0;
 unsigned long lastSend = 0;
 unsigned long lastPulse = 0;
 
-unsigned long lastTempSend= 0;
+unsigned long lastTempSend = 0;
 
 int oldValue = 0;
 bool state;
@@ -116,11 +124,11 @@ void before() {
 
   conversionTime = 750 / (1 << (12 - resolution));
   // Startup up the OneWire library
-  for (uint8_t i=0; i<3; i++) {
+  for (uint8_t i=0; i<2; i++) {
     sensors[i].setOneWire(&oneWire[i]);
     sensors[i].begin();
 
-  // requestTemperatures() will not block current thread
+    // requestTemperatures() will not block current thread
     sensors[i].setWaitForConversion(false);
 
     // Fetch the number of attached temperature sensors and set resolution
@@ -128,8 +136,8 @@ void before() {
       sensors[i].setResolution(j, resolution);
     }
   }
-  for (uint8_t i=0; i<MAX_PIRS; i++) {
-	debouncer[i] = Bounce();                        // initialize debouncer
+  for (uint8_t i = 0; i < MAX_PIRS; i++) {
+    debouncer[i] = Bounce();                        // initialize debouncer
     debouncer[i].attach(pirPin[i], INPUT_PULLUP);
     debouncer[i].interval(5);
   }
@@ -142,8 +150,7 @@ void presentation()  {
   present(CHILD_ID_WATER, S_WATER);
   present(CHILD_ID_RELAY, S_LIGHT);
   present(CHILD_ID_CONFIG, S_CUSTOM);
-  
-  // Present all sensors to controller
+
   for (int i = 0; i < MAX_ATTACHED_DS18B20; i++) { //i < numSensors &&
     present(20 + i, S_TEMP);
   }
@@ -165,28 +172,28 @@ void setup() {
 
 void loop()
 {
-	unsigned long currentTime = millis();
+  unsigned long currentTime = millis();
 
-	bool pir[MAX_PIRS];
-	bool bounceUpdate[MAX_PIRS] = {false}; //true, if button pressed
-    for (uint8_t i = 0; i < MAX_PIRS; i++) {
-        debounce[i].update();
-		pir[i] = debounce[i].read() == LOW;
-		if (pir[i] != oldPir[i]) {
-			send(pirMsg.set(FIRST_PIR_ID+i, pir[i]));  // Send tripped value to gw
-			if (i == 0 && pir[i]) {
-				if (digitalRead(RELAY_PIN) = RELAY_OFF ) {
-					// Send in the new temperature
-					digitalWrite(RELAY_PIN, RELAY_ON);
-					send(RelayMsg.set(true)); // Send new state and request ack back
-				}	
-			}
-			oldPir[i] = pir[i];
-		}
-	}
-	
-	if (pir[0] == 1) lastSwitchOn = currentTime;	
-			
+  bool pir[MAX_PIRS];
+  bool bounceUpdate[MAX_PIRS] = {false}; //true, if button pressed
+  for (uint8_t i = 0; i < MAX_PIRS; i++) {
+    debouncer[i].update();
+    pir[i] = debouncer[i].read() == LOW;
+    if (pir[i] != oldPir[i]) {
+      send(pirMsg.setSensor(FIRST_PIR_ID + i).set( pir[i])); // Send tripped value to gw
+      if (i == 0 && pir[i]) {
+        if (digitalRead(RELAY_PIN) == RELAY_OFF ) {
+          // Send in the new temperature
+          digitalWrite(RELAY_PIN, RELAY_ON);
+          send(RelayMsg.set(true)); // Send new state and request ack back
+        }
+      }
+      oldPir[i] = pir[i];
+    }
+  }
+
+  if (pir[0] == 1) lastSwitchOn = currentTime;
+
   // Only send values at a maximum frequency or woken up from sleep
   if (currentTime - lastSend > SEND_FREQUENCY)
   {
@@ -231,59 +238,60 @@ void loop()
   }
 
   //Switch Relay off after motion has stopped
-  if (currentTime - lastSwitchOn> pirOnTime) {
-    if (digitalRead(RELAY_PIN) = RELAY_ON ) {
+  if (currentTime - lastSwitchOn > pirOnTime) {
+    if (digitalRead(RELAY_PIN) == RELAY_ON ) {
       // Send in the new temperature
       digitalWrite(RELAY_PIN, RELAY_OFF);
       send(RelayMsg.set(false)); // Send new state and request ack back
     }
   }
 
-  //Loop for regular temperature sensing
-  if (currentTime - lastTemp > SLEEP_TIME) {
-	sensors[0].requestTemperatures();
-    sensors[1].requestTemperatures();
-    wait(conversionTime);
-    // Read temperatures and send them to controller
-    //First bus: Manual
-	for (int j = 0; j < 2; i++) { //i < numSensors &&
-		float temperature = static_cast<float>(static_cast<int>(sensors[j].getTempC(dallasAddresses[0]) * 10.)) / 10.;
-		if ( temperature != -127.00 && temperature != 85.00) {
-			// Send in the new temperature
-			send(DallasMsg.setSensor(j + 20).set(temperature, 1));
-			// Save new temperatures for next compare
-          lastTemperature[j] = temperature;
-#ifdef MY_DEBUG_LOCAL
-          // Write some debug info
-          Serial.print("Temperature ");
-          Serial.print(i);
-          Serial.print(" : ");
-          Serial.println(temperature);
-#endif
-        }
-	}
-	//second bus
-	for (int i = 3; i < MAX_ATTACHED_DS18B20; i++) { //i < numSensors &&
-		// Fetch and round temperature to one decimal
-		float temperature = static_cast<float>(static_cast<int>(sensors[1].getTempC(dallasAddresses[i]) * 10.)) / 10.;
-        
-		// Only send data if temperature has no error
-		if ( temperature != -127.00 && temperature != 85.00) {
-			// Send in the new temperature
-			send(DallasMsg.setSensor(i + 20).set(temperature, 1));
-			// Save new temperatures for next compare
-			lastTemperature[i] = temperature;
-#ifdef MY_DEBUG_LOCAL
-			// Write some debug info
-			Serial.print("Temperature ");
-			Serial.print(i);
-			Serial.print(" : ");
-			Serial.println(temperature);
-#endif
-		}
+  
+    //Loop for regular temperature sensing
+    if (currentTime - lastTemp > SLEEP_TIME) {
+    sensors[0].requestTemperatures();
+      sensors[1].requestTemperatures();
+      wait(conversionTime);
+      // Read temperatures and send them to controller
+      //First bus: Manual
+    for (int j = 0; j < 2; j++) { //i < numSensors &&
+      float temperature = static_cast<float>(static_cast<int>(sensors[j].getTempC(dallasAddresses[0]) * 10.)) / 10.;
+      if ( temperature != -127.00 && temperature != 85.00) {
+        // Send in the new temperature
+        send(DallasMsg.setSensor(j + 20).set(temperature, 1));
+        // Save new temperatures for next compare
+            lastTemperature[j] = temperature;
+    #ifdef MY_DEBUG_LOCAL
+            // Write some debug info
+            Serial.print("Temperature ");
+            Serial.print(i);
+            Serial.print(" : ");
+            Serial.println(temperature);
+    #endif
+          }
     }
-    lastTemp = currentTime;
-  }
+    //second bus
+    for (int i = 3; i < MAX_ATTACHED_DS18B20; i++) { //i < numSensors &&
+      // Fetch and round temperature to one decimal
+      float temperature = static_cast<float>(static_cast<int>(sensors[1].getTempC(dallasAddresses[i]) * 10.)) / 10.;
+
+      // Only send data if temperature has no error
+      if ( temperature != -127.00 && temperature != 85.00) {
+        // Send in the new temperature
+        send(DallasMsg.setSensor(i + 20).set(temperature, 1));
+        // Save new temperatures for next compare
+        lastTemperature[i] = temperature;
+    #ifdef MY_DEBUG_LOCAL
+        // Write some debug info
+        Serial.print("Temperature ");
+        Serial.print(i);
+        Serial.print(" : ");
+        Serial.println(temperature);
+    #endif
+      }
+      }
+      lastTemp = currentTime;
+    }
 }
 
 void receive(const MyMessage & message) {
@@ -302,7 +310,7 @@ void receive(const MyMessage & message) {
       // Change relay state
       state = message.getBool();
       digitalWrite(RELAY_PIN, state ? RELAY_ON : RELAY_OFF);
-	  onTime = millis();
+      lastSwitchOn = millis();
 #ifdef MY_DEBUG
       // Write some debug info
       Serial.print("Gw change relay:");
@@ -314,19 +322,19 @@ void receive(const MyMessage & message) {
   }
   else if (message.sensor == CHILD_ID_CONFIG) {
     if (message.type == V_VAR1) {
-      onTime = message.getInt(); //set new onTime for pir
+      pirOnTime = message.getInt()*1000; //set new onTime for pir
     }
     else if (message.type == V_VAR2) {
-      
+
     }
     else if (message.type == V_VAR3) {
-      
+
     }
     else if (message.type == V_VAR4) {
-      
+
     }
     else if (message.type == V_VAR5) {
-      
+
     }
   }
 }
@@ -352,12 +360,3 @@ void onPulse()
   pulseCount++;
 }
 
-void internalServo(int val1)
-{
-  myservo.attach(SERVO_DIGITAL_OUT_PIN);
-  attachedServo = true;
-  //myservo.write(SERVO_MAX + (SERVO_MIN - SERVO_MAX) / 100 * val1); // sets the servo position 0-180
-  myservo.write(SERVO_MAX + (SERVO_MIN - SERVO_MAX) / 100 * (130 - val1 * 40)); // sets the servo position 0-180
-  send(ServoMsg.set(val1));
-  timeOfLastChange = millis();
-}
