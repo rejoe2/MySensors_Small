@@ -3,14 +3,15 @@
   - Wasserzähler
   - 3xPIR:
   - 1 Relais
-  - 2 DS18B20
+  - 3x1Wire Bus (DS18B20)
   Konfiguration:
   - ID 0, V_VAR1: On-Time
+  - ID 0, V_VAR2: Temp-Measure Invervall
 */
 
 // Enable debug prints to serial monitor
 #define MY_DEBUG
-//#define MY_DEBUG_LOCAL
+#define MY_DEBUG_LOCAL
 
 // Enable RS485 transport layer
 #define MY_RS485
@@ -30,7 +31,7 @@
 
 #define MAX_ATTACHED_DS18B20 12
 #define MAX_BUS_DS18B20 3
-unsigned long SLEEP_TIME = 300000; // Sleep time between reads (in milliseconds)
+unsigned long TempSendFreqency = 300000; // Sleep time between reads (in milliseconds)
 unsigned long lastTemp = 0;
 
 OneWire oneWire[MAX_BUS_DS18B20] = {10, 12, 11}; //{oneWirePins[]} - setup oneWire instances to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
@@ -219,17 +220,20 @@ void loop()
     // Pulse count has changed
     if (pulseCount != oldPulseCount) {
       oldPulseCount = pulseCount;
-#ifdef MY_DEBUG_LOCAL
-      Serial.print("pulsecnt:");
+#ifdef MY_DEBUG
+      Serial.print(F("pulsecnt:"));
       Serial.println(pulseCount);
 #endif
+      if (!pcReceived) {
+        request(CHILD_ID_WATER, V_VAR1);
+      }
       send(lastCounterMsg.set(pulseCount));                  // Send  pulsecount value to gw in VAR1
 
       double volume = ((double)pulseCount / ((double)PULSE_FACTOR));
       if (volume != oldvolume) {
         oldvolume = volume;
-#ifdef MY_DEBUG_LOCAL
-        Serial.print("vol:");
+#ifdef MY_DEBUG
+        Serial.print(F("vol:"));
         Serial.println(volume, 3);
 #endif
         send(volumeMsg.set(volume, 3));               // Send volume value to gw
@@ -248,15 +252,17 @@ void loop()
 
 
   //Loop for regular temperature sensing
-  if (currentTime - lastTemp > SLEEP_TIME) {
-    for (int j = 0; j < MAX_BUS_DS18B20; j++) { //i < numSensors &&
+  if (currentTime - lastTemp > TempSendFreqency) {
+    for (int j = 0; j < MAX_BUS_DS18B20; j++) { 
       sensors[j].requestTemperatures();
+      wait(200);
     }
-    wait(conversionTime);
+  //  wait(conversionTime);
+  }
+  if (currentTime - lastTemp - conversionTime > TempSendFreqency) {
     // Read temperatures and send them to controller
-    //First bus: Manual
-    for (int j = 0; j < MAX_BUS_DS18B20; j++) { //i < numSensors &&
-      for (int i = DS_BUS_START[j]; i < DS_BUS_START[j + 1]; i++) { //i < numSensors &&
+    for (int j = 0; j < MAX_BUS_DS18B20; j++) { 
+      for (int i = DS_BUS_START[j]; i < DS_BUS_START[j + 1]; i++) { 
         float temperature = static_cast<float>(static_cast<int>(sensors[j].getTempC(dallasAddresses[i]) * 10.)) / 10.;
         if ( temperature != -127.00 && temperature != 85.00) {
           // Send in the new temperature
@@ -265,13 +271,14 @@ void loop()
           lastTemperature[i] = temperature;
 #ifdef MY_DEBUG_LOCAL
           // Write some debug info
-          Serial.print("Temperature ");
+          Serial.print(F("Temperature "));
           Serial.print(i);
           Serial.print(" : ");
           Serial.println(temperature);
 #endif
         }
       }
+      wait(500);
     }
     lastTemp = currentTime;
   }
@@ -280,8 +287,12 @@ void loop()
 void receive(const MyMessage & message) {
   if (message.sensor == CHILD_ID_WATER) {
     if (message.type == V_VAR1) {
-      pulseCount = message.getULong();
-      flow = oldflow = 0;
+      if (pcReceived){
+        pulseCount = message.getULong();
+        flow = oldflow = 0;
+      } else {
+        pulseCount = pulseCount+message.getULong();
+      }
       //Serial.print("Rec. last pulse count from gw:");
       //Serial.println(pulseCount);
       pcReceived = true;
@@ -296,9 +307,9 @@ void receive(const MyMessage & message) {
       lastSwitchOn = millis();
 #ifdef MY_DEBUG
       // Write some debug info
-      Serial.print("Gw change relay:");
+      Serial.print(F("Gw change relay:"));
       Serial.print(message.sensor);
-      Serial.print(", New status: ");
+      Serial.print(F(", New status: "));
       Serial.println(message.getBool());
 #endif
     }
@@ -308,7 +319,9 @@ void receive(const MyMessage & message) {
       pirOnTime = message.getInt() * 1000; //set new onTime for pir
     }
     else if (message.type == V_VAR2) {
-
+      if (message.getInt() > 10) {
+        TempSendFreqency = message.getInt() * 1000; //set new temp meassure intervall
+      }
     }
     else if (message.type == V_VAR3) {
 
