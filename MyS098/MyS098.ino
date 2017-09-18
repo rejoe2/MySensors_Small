@@ -255,11 +255,11 @@ void loop()
   if (currentTime - lastTemp > TempSendFreqency) {
     for (int j = 0; j < MAX_BUS_DS18B20; j++) { 
       sensors[j].requestTemperatures();
-      wait(200);
+      //wait(200);
     }
-  //  wait(conversionTime);
-  }
-  if (currentTime - lastTemp - conversionTime > TempSendFreqency) {
+    wait(conversionTime);
+  //}
+  //if (currentTime - lastTemp - conversionTime > TempSendFreqency) {
     // Read temperatures and send them to controller
     for (int j = 0; j < MAX_BUS_DS18B20; j++) { 
       for (int i = DS_BUS_START[j]; i < DS_BUS_START[j + 1]; i++) { 
@@ -278,7 +278,7 @@ void loop()
 #endif
         }
       }
-      wait(500);
+      //wait(500);
     }
     lastTemp = currentTime;
   }
