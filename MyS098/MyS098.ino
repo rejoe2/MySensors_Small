@@ -10,8 +10,8 @@
 */
 
 // Enable debug prints to serial monitor
-#define MY_DEBUG
-#define MY_DEBUG_LOCAL
+//#define MY_DEBUG
+//#define MY_DEBUG_LOCAL
 
 // Enable RS485 transport layer
 #define MY_RS485
@@ -20,7 +20,9 @@
 #define MY_RS485_DE_PIN 2
 
 // Set RS485 baud rate to use
-#define MY_RS485_BAUD_RATE 9600
+#define MY_RS485_BAUD_RATE 38400 //9600
+#define MY_RS485_SOH_COUNT 3
+#define MY_RS485_HWSERIAL Serial
 
 #define MY_NODE_ID 98
 #define MY_TRANSPORT_WAIT_READY_MS 3000
@@ -158,9 +160,6 @@ void presentation()  {
   for (int i = 0; i < MAX_PIRS; i++) { //i < numSensors &&
     present(FIRST_PIR_ID + i, S_MOTION);
   }
-}
-
-void setup() {
   // Fetch last known pulse count value from gw
   request(CHILD_ID_WATER, V_VAR1);
   request(CHILD_ID_CONFIG, V_VAR1);
@@ -168,6 +167,9 @@ void setup() {
   request(CHILD_ID_CONFIG, V_VAR3);
   request(CHILD_ID_CONFIG, V_VAR4);
   request(CHILD_ID_CONFIG, V_VAR5);
+}
+
+void setup() {
   lastSend = lastPulse = millis();
 }
 
@@ -255,11 +257,11 @@ void loop()
   if (currentTime - lastTemp > TempSendFreqency) {
     for (int j = 0; j < MAX_BUS_DS18B20; j++) { 
       sensors[j].requestTemperatures();
-      wait(200);
+      //wait(200);
     }
-  //  wait(conversionTime);
-  }
-  if (currentTime - lastTemp - conversionTime > TempSendFreqency) {
+    wait(conversionTime);
+  //}
+  //if (currentTime - lastTemp - conversionTime > TempSendFreqency) {
     // Read temperatures and send them to controller
     for (int j = 0; j < MAX_BUS_DS18B20; j++) { 
       for (int i = DS_BUS_START[j]; i < DS_BUS_START[j + 1]; i++) { 
@@ -276,11 +278,12 @@ void loop()
           Serial.print(" : ");
           Serial.println(temperature);
 #endif
+        wait(50);
         }
-      }
       wait(500);
+      }
     }
-    lastTemp = currentTime;
+    lastTemp = millis(); //currentTime;
   }
 }
 
@@ -355,4 +358,3 @@ void onPulse()
   }
   pulseCount++;
 }
-
