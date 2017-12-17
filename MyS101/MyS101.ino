@@ -45,7 +45,8 @@
 #define ONE_WIRE_BUS 8 // Pin where dallase sensor is connected 
 #define MAX_ATTACHED_DS18B20 4
 uint8_t DS_First_Child_ID = 7; //First Child-ID to be used by Dallas Bus; set this to be higher than other Child-ID's who need EEPROM storage to avoid conflicts
-unsigned long SLEEP_TIME = 30000; // Sleep time between reads (in milliseconds)
+unsigned long TempSendFreqency = 180000; // Sleep time between reads (in milliseconds)
+unsigned long lastTemp = 0;
 OneWire oneWire(ONE_WIRE_BUS); // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 DallasTemperature sensors(&oneWire); // Pass the oneWire reference to Dallas Temperature.
 float lastTemperature[MAX_ATTACHED_DS18B20];
@@ -76,6 +77,7 @@ void before()
   for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
     // Then set relay pins in output mode
     pinMode(pin, OUTPUT);
+    digitalWrite(pin, RELAY_OFF);
   }
 }
 
@@ -98,6 +100,10 @@ void presentation() {
   for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
     // Register all sensors to gw (they will be created as child devices)
     present(sensor, S_BINARY);
+  metric = getControllerConfig().isMetric;
+  for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
+    // Set relay to last known state (using eeprom storage)
+    request(sensor, V_STATUS);
   }
 }
 
@@ -114,43 +120,40 @@ void setup()
 #endif
     sensors.setResolution(tempDeviceAddress, resolution);
   }
-  for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
-    // Set relay to last known state (using eeprom storage)
-    request(sensor, V_STATUS);
-  }
-  metric = getControllerConfig().isMetric;
 }
 
 void loop() {
-  // Fetch temperatures from Dallas sensors
-  sensors.requestTemperatures();
+  unsigned long currentTime = millis();  // Fetch temperatures from Dallas sensors
+  if (currentTime - lastTemp > TempSendFreqency) {
+    sensors.requestTemperatures();
 
-  // sleep() call can be replaced by wait() call if node need to process incoming messages (or if node is repeater)
-  wait(conversionTime);
+    // sleep() call can be replaced by wait() call if node need to process incoming messages (or if node is repeater)
+    wait(conversionTime);
 
-  // Read temperatures and send them to controller
-  for (int i = 0; i < numSensors && i < MAX_ATTACHED_DS18B20; i++) {
+    // Read temperatures and send them to controller
+    for (int i = 0; i < numSensors && i < MAX_ATTACHED_DS18B20; i++) {
 
-    // Fetch and round temperature to one decimal
-    float temperature = static_cast<float>(static_cast<int>((metric ? sensors.getTempCByIndex(i) : sensors.getTempFByIndex(i)) * 10.)) / 10.;
+      // Fetch and round temperature to one decimal
+      float temperature = static_cast<float>(static_cast<int>((metric ? sensors.getTempCByIndex(i) : sensors.getTempFByIndex(i)) * 10.)) / 10.;
 
-    // Only send data if temperature has changed and no error
+      // Only send data if temperature has changed and no error
 #if COMPARE_TEMP == 1
-    if (lastTemperature[i] != temperature && temperature != -127.00 && temperature != 85.00) {
+      if (lastTemperature[i] != temperature && temperature != -127.00 && temperature != 85.00) {
 #else
-    if (temperature != -127.00 && temperature != 85.00) {
+      if (temperature != -127.00 && temperature != 85.00) {
 #endif
 
-      // Send in the new temperature
-      send(msgTemp.setSensor(i + 1).set(temperature, 1));
-      wait(20);
-      // Save new temperatures for next compare
-      lastTemperature[i] = temperature;
+        // Send in the new temperature
+        send(msgTemp.setSensor(i + 1).set(temperature, 1));
+        wait(20);
+        // Save new temperatures for next compare
+        lastTemperature[i] = temperature;
+      }
     }
+    lastTemp = millis();
   }
-
   // sleep() call can be replaced by wait() call if node need to process incoming messages (or if node is repeater)
-  wait(SLEEP_TIME);
+  //wait(SLEEP_TIME);
 }
 
 char* addrToChar(uint8_t* data) {
@@ -184,4 +187,3 @@ void receive(const MyMessage & message)
 #endif
   }
 }
-
