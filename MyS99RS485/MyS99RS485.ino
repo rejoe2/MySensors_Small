@@ -37,7 +37,7 @@
 
 
 // Enable debug prints to serial monitor
-#define MY_DEBUG
+//#define MY_DEBUG
 
 // Enable and select radio type attached
 //#define MY_RADIO_NRF24
@@ -50,11 +50,11 @@
 #define MY_RS485_DE_PIN 2
 
 // Set RS485 baud rate to use
-#define MY_RS485_BAUD_RATE 38400 //9600
+#define MY_RS485_BAUD_RATE 57600 //38400 //9600
 #define MY_RS485_SOH_COUNT 3
 
 #define MY_TRANSPORT_WAIT_READY_MS 6000
-#define MY_NODE_ID 103
+#define MY_NODE_ID 99
 
 //#include <SPI.h>
 #include <MySensors.h>
@@ -166,7 +166,7 @@ void loop() {
     }
   }
   if (currentTime - lastHeartbeat > HeartbeatTime) {
-    sendHeartbeat();
+    send(pirMsg.setSensor(FIRST_PIR_ID + 1).set("1")); // Send tripped value to gw
     lastHeartbeat = currentTime;
   }
 };

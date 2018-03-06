@@ -5,7 +5,7 @@
  */
 
 #define SN "BME280"
-#define SV "0.1"
+#define SV "0.2"
 
 #define MY_DEBUG
 #define MY_DEBUG_LOCAL
@@ -15,7 +15,9 @@
 // Define this to enables DE-pin management on defined pin
 #define MY_RS485_DE_PIN 2
 // Set RS485 baud rate to use
-#define MY_RS485_BAUD_RATE 9600
+#define MY_RS485_BAUD_RATE 57600 //38400 //9600
+#define MY_RS485_SOH_COUNT 3
+
 #define MY_NODE_ID 97
 #define MY_TRANSPORT_WAIT_READY_MS 20000
 #include <Arduino.h>

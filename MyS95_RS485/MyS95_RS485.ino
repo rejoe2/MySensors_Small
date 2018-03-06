@@ -27,13 +27,23 @@
 */
 
 // Enable debug prints to serial monitor
-#define MY_DEBUG
+//#define MY_DEBUG
+
+// Enable RS485 transport layer
+#define MY_RS485
+
+// Define this to enables DE-pin management on defined pin
+#define MY_RS485_DE_PIN 3
+
+// Set RS485 baud rate to use
+#define MY_RS485_BAUD_RATE 57600 //38400 //9600
+#define MY_RS485_SOH_COUNT 3
+#define MY_RS485_HWSERIAL Serial
 
 // Enable and select radio type attached
-#define MY_RADIO_NRF24
+//#define MY_RADIO_NRF24
 //#define MY_RADIO_RFM69
-#define MY_NODE_ID 101
-//#define MY_TRANSPORT_RELAXED
+#define MY_NODE_ID 95
 #define MY_TRANSPORT_WAIT_READY_MS 3000
 
 #include <SPI.h>
@@ -41,7 +51,7 @@
 #include <DallasTemperature.h>
 #include <OneWire.h>
 
-#define COMPARE_TEMP 1 // Send temperature only if changed? 1 = Yes 0 = No
+#define COMPARE_TEMP 0 // Send temperature only if changed? 1 = Yes 0 = No
 #define ONE_WIRE_BUS 8 // Pin where dallase sensor is connected 
 #define MAX_ATTACHED_DS18B20 4
 uint8_t DS_First_Child_ID = 7; //First Child-ID to be used by Dallas Bus; set this to be higher than other Child-ID's who need EEPROM storage to avoid conflicts
@@ -100,6 +110,7 @@ void presentation() {
   for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
     // Register all sensors to gw (they will be created as child devices)
     present(sensor, S_BINARY);
+  }
   metric = getControllerConfig().isMetric;
   for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
     // Set relay to last known state (using eeprom storage)
