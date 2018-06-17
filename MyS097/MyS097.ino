@@ -5,18 +5,20 @@
  */
 
 #define SN "BME280"
-#define SV "0.2"
+#define SV "0.4"
 
-#define MY_DEBUG
-#define MY_DEBUG_LOCAL
+//#define MY_DEBUG
+//#define MY_DEBUG_LOCAL
 // Enable RS485 transport layer
 #define MY_RS485
-//#define MY_RS485_HWSERIAL Serial
+#define MY_RS485_HWSERIAL Serial
+#define MY_SPLASH_SCREEN_DISABLED
+
 // Define this to enables DE-pin management on defined pin
-#define MY_RS485_DE_PIN 2
+//#define MY_RS485_DE_PIN 2
 // Set RS485 baud rate to use
-#define MY_RS485_BAUD_RATE 38400 //9600
-#define MY_RS485_SOH_COUNT 3
+#define MY_RS485_BAUD_RATE 19200 //57600 //38400 //9600
+//#define MY_RS485_SOH_COUNT 3
 
 #define MY_NODE_ID 97
 #define MY_TRANSPORT_WAIT_READY_MS 20000
@@ -48,7 +50,9 @@ float lastPressure = -1;
 float lastTemp = -1;
 float lastHum = -1;
 float temperature(NAN), humidity(NAN), pressureBme(NAN);
-uint8_t pressureUnit(1);                                          
+BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
+BME280::PresUnit presUnit(BME280::PresUnit_hPa);
+//uint8_t pressureUnit (1);                                          
 // unit: B000 = Pa, B001 = hPa, B010 = Hg, B011 = atm, B100 = bar, B101 = torr, B110 = N/m^2, B111 = psi
 
 MyMessage tempMsg(TEMP_CHILD, V_TEMP);
@@ -101,7 +105,7 @@ void loop()
 
   // Only send values at a maximum frequency
   if (currentTime - lastSend > bmeDelayTime) {
-    bme.read(pressureBme, temperature, humidity, metric, pressureUnit); //Parameters: (float& pressure, float& temp, float& humidity, bool celsius = false, uint8_t pressureUnit = 0x0)
+    bme.read(pressureBme, temperature, humidity, tempUnit, presUnit); //Parameters: (float& pressure, float& temp, float& humidity, bool celsius = false, uint8_t pressureUnit = 0x0)
     if (isnan(temperature)) {
 #ifdef MY_DEBUG_LOCAL
       Serial.println("Failed reading temperature");
@@ -149,6 +153,7 @@ void loop()
       send(forecastMsg.set(weather[forecast]));
      lastForecast = forecast;
     }
+    sendHeartbeat();
     lastSend = currentTime;
   }
 }
