@@ -13,6 +13,9 @@
 //#define MY_DEBUG
 //#define MY_DEBUG_LOCAL
 
+#define SN "Zwischenkeller"
+#define SV "0.2"
+
 // Enable RS485 transport layer
 #define MY_RS485
 
@@ -20,9 +23,10 @@
 #define MY_RS485_DE_PIN 2
 
 // Set RS485 baud rate to use
-#define MY_RS485_BAUD_RATE 38400 //9600
-#define MY_RS485_SOH_COUNT 3
+#define MY_RS485_BAUD_RATE 19200 //57600 //38400 //9600
+#define MY_RS485_SOH_COUNT 1
 #define MY_RS485_HWSERIAL Serial
+#define MY_SPLASH_SCREEN_DISABLED
 
 #define MY_NODE_ID 98
 #define MY_TRANSPORT_WAIT_READY_MS 3000
@@ -148,7 +152,7 @@ void before() {
 
 void presentation()  {
   // Send the sketch version information to the gateway and Controller
-  sendSketchInfo("Zwischenkeller", "0.1");
+  sendSketchInfo(SN, SV);
   // Register all sensors to gw (they will be created as child devices)
   present(CHILD_ID_WATER, S_WATER);
   present(CHILD_ID_RELAY, S_LIGHT);
@@ -241,6 +245,7 @@ void loop()
         send(volumeMsg.set(volume, 3));               // Send volume value to gw
       }
     }
+    sendHeartbeat();
   }
 
   //Switch Relay off after motion has stopped
