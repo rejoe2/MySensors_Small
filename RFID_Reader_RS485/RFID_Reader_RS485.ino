@@ -121,7 +121,7 @@ int        releasecnt = 0;
 #define    CHILD_ID_LOCK     2
 #define CHILD_ID_TAGID 4 // Id of the sensor child
 
-String tagid = String();
+//volatile String tagid = String();
 
 Bounce     debouncer = Bounce();
 
@@ -255,8 +255,7 @@ void loop()
     //mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
 
     getTagId(&(mfrc522.uid));
-    send(tagMsg.set(tagid)); // Send id of the rfid-tag  to gw
-    
+        
     if (!olduid.size || !sameUid(&(mfrc522.uid), &olduid))  {
       ShowCardData(&(mfrc522.uid));
       copyUid(&(mfrc522.uid), &olduid);
@@ -290,7 +289,7 @@ void loop()
               send(wrongMsg.set(1));
               delay(2000);
               send(wrongMsg.set(0));
-              send(tagMsg.set(tagid)); // Send id of the rfid-tag  to gw
+              //send(tagMsg.set(tagid)); // Send id of the rfid-tag  to gw
             }
           }
         }
@@ -313,7 +312,7 @@ void ShowCardData(MFRC522::Uid* uid) {
 }
 
 void getTagId(MFRC522::Uid* uid) {
-   tagid=("");
+   String tagid=("");
    for (byte i = 0; i < uid->size; i++) {
     if (uid->uidByte[i] < 0x10) {
       if (i>0) tagid+=(",");
@@ -321,9 +320,14 @@ void getTagId(MFRC522::Uid* uid) {
       tagid+=(" ");
     }
     tagid+=("0x");
-    tagid+=(uid->uidByte[i]);
+    tagid+=(String(uid->uidByte[i], HEX));
   }
-  return tagid;
+  Serial.print("tagid: ");
+  Serial.println(tagid);
+  char TAGID[tagid.length() + 1];
+  tagid.toCharArray(TAGID, tagid.length() + 1);
+  
+  send(tagMsg.set(TAGID)); // Send id of the rfid-tag  to gw
 }
 
 void copyUid(MFRC522::Uid* src, MFRC522::Uid* dest)
