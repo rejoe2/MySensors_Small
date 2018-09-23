@@ -123,6 +123,7 @@ volatile unsigned long dryPulseCount = 0;
 
 //For pump
 #define RELAY_PIN 7 
+char* RELAY_NAMES[] = {"Links","Mitte","Rechts","Pumpe"};
 MyMessage RelayMsg(NUMBER_OF_RELAYS, V_LIGHT);
 
 
@@ -168,7 +169,7 @@ void presentation() {
   }
   for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
     // Register all sensors to gw (they will be created as child devices)
-    present(sensor, S_BINARY);
+    present(sensor, S_BINARY, RELAY_NAMES[sensor-1]);
   }
   metric = getControllerConfig().isMetric;
   for (int sensor = 1, pin = RELAY_1; sensor <= NUMBER_OF_RELAYS; sensor++, pin++) {
@@ -254,7 +255,7 @@ void loop() {
         startTimeDryRun = currentTime;
         bool inverted = !digitalRead(RELAY_PIN);
         digitalWrite(RELAY_PIN, inverted);
-        send(RelayMsg.set(!inverted)); // Send new state 
+        send(RelayMsg.setSensor(4).set(!inverted)); // Send new state 
       }
       oldPir[i] = pir[i];
     }
@@ -263,7 +264,7 @@ void loop() {
     if (currentTime - startTimeDryRun > maxTimeDryRun) {
       if (dryPulseCount == 1) { //XXX Change to 0 when flow meter is attached
         digitalWrite(RELAY_PIN, RELAY_OFF);
-        send(RelayMsg.set(false)); // Send new state and request ack back
+        send(RelayMsg.setSensor(4).set(false)); // Send new state and request ack back
       }
     } else {
         startTimeDryRun = currentTime;
