@@ -3,14 +3,9 @@
 
   This example shows how to drive a valve with using HG7881 (L9110) Dual or Four
   Channel Motor Driver Module.
+  
+  See info at the end of file for wiring etc..
 
-  Connections:
-   (e.g., first valve)
-    Arduino digital output "ibPin[0]" to motor driver input A-IA.
-    Arduino digital output "iaPin[0]" to motor driver input A-IB.
-    Motor driver VCC to operating voltage (e.g. 3V for valves from Pearl origin).
-    Motor driver GND to common ground.
-    Motor driver MOTOR A screw terminals to a single valve.
 */
 
 #define SN "MultiValve"
@@ -33,7 +28,7 @@
 #define MY_NODE_ID 111
 #include <Bounce2.h>
 #define DO_BREAK // set motor break on after switching valve
-
+#define KEEP_OPEN 50 // ms to switch from open to close vice versa
 
 #include <MySensors.h>
 
@@ -155,7 +150,7 @@ void receive(const MyMessage &message) {
 void closeValve( uint8_t valve ) {
   digitalWrite(Valves[valve].iaPin, HIGH);
   digitalWrite(Valves[valve].ibPin, LOW);
-  delay(20);
+  delay(KEEP_OPEN);
 #ifdef DO_BREAK
   digitalWrite(Valves[valve].iaPin, HIGH);
   digitalWrite(Valves[valve].ibPin, HIGH);
@@ -169,7 +164,7 @@ void closeValve( uint8_t valve ) {
 void openValve( uint8_t valve ) {
   digitalWrite(Valves[valve].iaPin, LOW);
   digitalWrite(Valves[valve].ibPin, HIGH);
-  delay(20);
+  delay(KEEP_OPEN);
 #ifdef DO_BREAK
   digitalWrite(Valves[valve].iaPin, HIGH);
   digitalWrite(Valves[valve].ibPin, HIGH);
