@@ -6,8 +6,8 @@
 
   Connections:
    (e.g., first valve)
-    Arduino digital output "dirPin[0]" to motor driver input A-IA.
-    Arduino digital output "pwmPin[0]" to motor driver input A-IB.
+    Arduino digital output "ibPin[0]" to motor driver input A-IA.
+    Arduino digital output "iaPin[0]" to motor driver input A-IB.
     Motor driver VCC to operating voltage (e.g. 3V for valves from Pearl origin).
     Motor driver GND to common ground.
     Motor driver MOTOR A screw terminals to a single valve.
@@ -32,6 +32,8 @@
 #define MY_TRANSPORT_WAIT_READY_MS 3000
 #define MY_NODE_ID 111
 #include <Bounce2.h>
+#define DO_BREAK // set motor break on after switching valve
+
 
 #include <MySensors.h>
 
@@ -44,16 +46,17 @@ unsigned long lastSend = 0;
 #define ALL_OFF_PIN 4
 #define BUTTON_ALL_ID 10
 
-const uint8_t dirPin[] = {13, A1, A3, A5};    //  switch around pins to your desire
-const uint8_t pwmPin[] = {A0, A2, A4, A6};    //  switch around pins to your desire
-const uint8_t buttonPin[] = { 5, 6, 7, 10};   //  switch around pins to your desire
+const uint8_t iaPin[] = {5, 6, 10, 11};         //  switch around pins to your desire
+//nano pwm: 3, 5, 6, 9, 10, 11
+const uint8_t ibPin[] = {A4, A5, A6, A7};       //  switch around pins to your desire
+const uint8_t buttonPin[] = { 7, A1, A2, A3};   //  switch around pins to your desire
 
 class Valve             // valve class, store all relevant data (equivalent to struct)
 {
   public:
     uint8_t buttonPin;      // physical pin number of button
-    uint8_t dirPin;         // physical pin number of direction PIN
-    uint8_t pwmPin;         // physical pin number of relay
+    uint8_t ibPin;         // physical pin number of direction PIN
+    uint8_t iaPin;         // physical pin number of iaPin
     bool    valveState;    // valve status 
 };
 
@@ -148,19 +151,71 @@ void receive(const MyMessage &message) {
 
 }
 
+
 void closeValve( uint8_t valve ) {
-  digitalWrite(Valves[valve].dirPin, LOW);
-  digitalWrite(Valves[valve].pwmPin, HIGH);
+  digitalWrite(Valves[valve].iaPin, HIGH);
+  digitalWrite(Valves[valve].ibPin, LOW);
   delay(20);
-  digitalWrite(Valves[valve].pwmPin, LOW);
+#ifdef DO_BREAK
+  digitalWrite(Valves[valve].iaPin, HIGH);
+  digitalWrite(Valves[valve].ibPin, HIGH);
+#else
+  digitalWrite(Valves[valve].ibPin, LOW);
+  digitalWrite(Valves[valve].iaPin, LOW);
+#endif
   Valves[valve].valveState = 0;
 }
 
 void openValve( uint8_t valve ) {
-  digitalWrite(Valves[valve].dirPin, HIGH);
-  digitalWrite(Valves[valve].pwmPin, HIGH);
+  digitalWrite(Valves[valve].iaPin, LOW);
+  digitalWrite(Valves[valve].ibPin, HIGH);
   delay(20);
-  digitalWrite(Valves[valve].dirPin, LOW);
-  digitalWrite(Valves[valve].pwmPin, LOW);
+#ifdef DO_BREAK
+  digitalWrite(Valves[valve].iaPin, HIGH);
+  digitalWrite(Valves[valve].ibPin, HIGH);
+#else
+  digitalWrite(Valves[valve].iaPin, LOW);
+  digitalWrite(Valves[valve].ibPin, LOW);
+#endif
   Valves[valve].valveState = 1;
 }
+
+/*
+****
+Description from https://www.bananarobotics.com/shop/HG7881-(L9110)-Dual-Channel-Motor-Driver-Module
+NOTE: Other docs mention 10V to be the upper voltage limit
+****
+
+The HG7881 (L9110S) Dual Channel Motor Driver Module is a compact board that can be used to drive very small robots.
+
+This tiny module has two independent HG7881 (L9110S) motor driver chips which can each drive up 800mA of continuous current. The boards can be operated from 2.5V to 12V enabling this module to be used with both 3.3V and 5V microcontrollers.
+
+A set of male header pins is used to connect this module to your robot's microcontroller brain. The motors are attached via two sets of screw terminals.
+
+A PWM Pulse Width Modulation signal is used to control the speed of a motor and a digital output is used to change its direction. This module can also be used to drive a single four line two phase stepper motor. Four holes make this board easy to mount onto your robot or other project.
+Motor Control Interface Pin 	Description
+B-IA 	Motor B Input A (IA)
+B-IB 	Motor B Input B (IB)
+GND 	Ground
+VCC 	Operating Voltage 2.5-12V
+A-IA 	Motor A Input A (IA)
+A-IB 	Motor A Input B (IB)
+
+ 
+Motor Truth Table 
+IA 	IB 	Motor State
+L 	L 	Off
+H 	L 	Forward
+L 	H 	Reverse
+H 	H 	Off
+
+We recommend applying a PWM signal to input IA to control the motor speed and a digital output to input IB to control its direction.
+
+Note that the actual direction that "forward" and "reverse" turn your motor will depend on how it is oriented and wired. If your motor spins the wrong way, either swap the motor wires that connect to the output terminals or change the way the IA and IB bits get set in your program.
+
+*******
+
+For pwm pins see https://www.arduino.cc/reference/en/language/functions/analog-io/analogwrite/
+=> nano: 3, 5, 6, 9, 10, 11
+
+*/
