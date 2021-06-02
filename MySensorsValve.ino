@@ -86,7 +86,7 @@ void before()
   for (uint8_t i = 0; i < MAX_VALVES; i++) {
       closeValve(i);
       debounce[i] = Bounce();
-      debounce[i].attach(INPUT_PINS[i], INPUT_PULLUP);
+      debounce[i].attach(buttonPin[i], INPUT_PULLUP);
       debounce[i].interval(5);
   }
 
@@ -121,11 +121,11 @@ void loop()
   for (uint8_t i = 0; i < MAX_VALVES; i++) {
     debounce[i].update();
 
-    int value = debouncer[i].read();
+    int value = debounce[i].read();
     
     if ( value == LOW) {
-        Valves[i].relayState ? closeValve(i) : openValve(i);
-        send(msg[VALVE_0_ID+i].set(Valves[i].relayState ? true : false));
+        Valves[i].valveState ? closeValve(i) : openValve(i);
+        send(msg[VALVE_0_ID+i].set(Valves[i].valveState ? true : false));
     }
   }
 
@@ -164,4 +164,3 @@ void openValve( uint8_t valve ) {
   digitalWrite(Valves[valve].pwmPin, LOW);
   Valves[valve].valveState = 1;
 }
-
